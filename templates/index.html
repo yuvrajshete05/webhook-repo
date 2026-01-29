@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GitHub Events Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+        .status-bar {
+            background: #f8f9fa;
+            padding: 15px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .status-info {
+            display: flex;
+            gap: 30px;
+        }
+
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .status-label {
+            color: #666;
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        .status-value {
+            color: #333;
+            font-size: 14px;
+            font-weight: bold;
+        }
+
+        .refresh-btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .refresh-btn:hover {
+            background: #764ba2;
+        }
+
+        .refresh-btn.loading {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .content {
+            padding: 30px;
+        }
+
+        .table-wrapper {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+
+        thead {
+            background: #f8f9fa;
+        }
+
+        th {
+            padding: 15px;
+            text-align: left;
+            font-weight: 600;
+            color: #333;
+            border-bottom: 2px solid #e0e0e0;
+        }
+
+        td {
+            padding: 15px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        tbody tr {
+            transition: background 0.2s;
+        }
+
+        tbody tr:hover {
+            background: #f8f9fa;
+        }
+
+        .action-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .action-push {
+            background: #e7f5ff;
+            color: #0066cc;
+        }
+
+        .action-pull_request {
+            background: #fff8e6;
+            color: #cc8800;
+        }
+
+        .action-merge {
+            background: #e6ffe6;
+            color: #006600;
+        }
+
+        .branch-badge {
+            display: inline-block;
+            padding: 3px 8px;
+            background: #f0f0f0;
+            border-radius: 4px;
+            font-size: 12px;
+            font-family: 'Courier New', monospace;
+            color: #333;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #999;
+        }
+
+        .empty-state svg {
+            width: 80px;
+            height: 80px;
+            margin-bottom: 20px;
+            opacity: 0.3;
+        }
+
+        .empty-state h3 {
+            font-size: 18px;
+            margin-bottom: 10px;
+            color: #666;
+        }
+
+        .empty-state p {
+            font-size: 13px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #999;
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .timestamp {
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            color: #666;
+        }
+
+        .footer {
+            background: #f8f9fa;
+            padding: 15px 30px;
+            text-align: center;
+            font-size: 12px;
+            color: #999;
+            border-top: 1px solid #e0e0e0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚀 GitHub Events Dashboard</h1>
+            <p>Real-time tracking of repository actions (PUSH, PULL REQUEST, MERGE)</p>
+        </div>
+
+        <div class="status-bar">
+            <div class="status-info">
+                <div class="status-item">
+                    <span class="status-label">Total Events:</span>
+                    <span class="status-value" id="eventCount">0</span>
+                </div>
+                <div class="status-item">
+                    <span class="status-label">Last Updated:</span>
+                    <span class="status-value" id="lastUpdated">Never</span>
+                </div>
+            </div>
+            <button class="refresh-btn" id="refreshBtn" onclick="fetchEvents()">🔄 Refresh Now</button>
+        </div>
+
+        <div class="content">
+            <div class="table-wrapper">
+                <div id="tableContainer">
+                    <div class="loading">
+                        <div class="spinner"></div>
+                        <p>Loading events...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="footer">
+            <p>🔄 Auto-refreshing every 15 seconds | Built with Flask + MongoDB</p>
+        </div>
+    </div>
+
+    <script>
+        // Fetch events from API
+        async function fetchEvents() {
+            const refreshBtn = document.getElementById('refreshBtn');
+            refreshBtn.classList.add('loading');
+            refreshBtn.disabled = true;
+
+            try {
+                const response = await fetch('/api/events');
+                const result = await response.json();
+
+                if (result.success) {
+                    displayEvents(result.data);
+                    updateLastUpdated();
+                } else {
+                    showError('Failed to fetch events');
+                }
+            } catch (error) {
+                console.error('Error fetching events:', error);
+                showError('Error connecting to server');
+            } finally {
+                refreshBtn.classList.remove('loading');
+                refreshBtn.disabled = false;
+            }
+        }
+
+        // Display events in table
+        function displayEvents(events) {
+            const container = document.getElementById('tableContainer');
+
+            if (!events || events.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <h3>No events yet</h3>
+                        <p>Events will appear here when you push, create pull requests, or merge branches in your GitHub repository.</p>
+                    </div>
+                `;
+                document.getElementById('eventCount').textContent = '0';
+                return;
+            }
+
+            document.getElementById('eventCount').textContent = events.length;
+
+            let html = `
+                <table>
+                    <thead>
+                        <tr>
+                            <th style="width: 15%">Author</th>
+                            <th style="width: 15%">Action</th>
+                            <th style="width: 20%">From Branch</th>
+                            <th style="width: 20%">To Branch</th>
+                            <th style="width: 30%">Timestamp</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            events.forEach(event => {
+                const actionClass = `action-${event.action.toLowerCase().replace(' ', '_')}`;
+                const fromBranch = event.from_branch ? `<span class="branch-badge">${escapeHtml(event.from_branch)}</span>` : '<span style="color: #999;">—</span>';
+                const toBranch = event.to_branch ? `<span class="branch-badge">${escapeHtml(event.to_branch)}</span>` : '<span style="color: #999;">—</span>';
+
+                html += `
+                    <tr>
+                        <td><strong>${escapeHtml(event.author)}</strong></td>
+                        <td><span class="action-badge ${actionClass}">${event.action}</span></td>
+                        <td>${fromBranch}</td>
+                        <td>${toBranch}</td>
+                        <td><span class="timestamp">${formatDate(event.timestamp)}</span></td>
+                    </tr>
+                `;
+            });
+
+            html += `
+                    </tbody>
+                </table>
+            `;
+
+            container.innerHTML = html;
+        }
+
+        // Format ISO date to readable format
+        function formatDate(isoString) {
+            if (!isoString) return 'Unknown';
+            const date = new Date(isoString);
+            return date.toLocaleString('en-US', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                hour12: true
+            });
+        }
+
+        // Update last updated time
+        function updateLastUpdated() {
+            const now = new Date();
+            document.getElementById('lastUpdated').textContent = now.toLocaleTimeString();
+        }
+
+        // Escape HTML to prevent XSS
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Show error message
+        function showError(message) {
+            const container = document.getElementById('tableContainer');
+            container.innerHTML = `
+                <div class="empty-state">
+                    <h3>⚠️ Error</h3>
+                    <p>${escapeHtml(message)}</p>
+                </div>
+            `;
+        }
+
+        // Initial load
+        fetchEvents();
+
+        // Auto-refresh every 15 seconds
+        setInterval(fetchEvents, 15000);
+    </script>
+</body>
+</html>
